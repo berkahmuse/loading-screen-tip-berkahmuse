@@ -7,7 +7,9 @@ stressed developer spends far longer reviewing it, and the punchline
 names the developer - not the machine - as the bottleneck.
 """
 
+import hashlib
 import os
+import sys
 
 ENTRY = (
     "Loading\u2026 The AI wrote your function in 4 seconds. "
@@ -17,11 +19,18 @@ ENTRY = (
 
 
 def validate(text: str) -> str:
-    """Gate: one line, 1-200 chars, non-blank, valid UTF-8, no newline."""
+    """Gate: one line, 1-200 chars, non-blank, valid UTF-8, no newline.
+
+    Also rejects control characters (a loading screen renders none of
+    them) and requires more than one word, so a bare token can never
+    pass as a tip.
+    """
     assert isinstance(text, str) and text, "entry must be non-empty text"
     assert "\n" not in text and "\r" not in text, "entry must be a single line"
     assert text == text.strip(), "entry must have no leading/trailing whitespace"
     assert 1 <= len(text) <= 200, f"entry must be 1-200 chars, got {len(text)}"
+    assert all(ord(ch) >= 0x20 for ch in text), "entry must have no control chars"
+    assert len(text.split()) > 1, "entry must be a real tip, not one word"
     text.encode("utf-8")
     return text
 
@@ -34,8 +43,11 @@ def main() -> None:
     with open("/output/entry.txt", encoding="utf-8") as f:
         written = f.read()
     assert written == text, "re-read mismatch"
-    print(f"wrote {len(text)} chars to /output/entry.txt")
+    digest = hashlib.sha256(written.encode("utf-8")).hexdigest()
+    print(f"wrote {len(text)} chars ({len(written.encode('utf-8'))} bytes) "
+          f"to /output/entry.txt sha256={digest}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
